@@ -31,25 +31,13 @@ pub struct IntCode {
 }
 impl IntCode {
     pub fn new(data: &str) -> Self {
-        let data_vec: Vec<i64> = data
+        let data: HashMap<usize, i64> = data
             .trim()
             .split(',')
-            .map(|s| {
-                let result = s.parse::<i64>();
-                match result {
-                    Ok(res) => res,
-                    Err(_e) => {
-                        println!("Could not parse: '{s}'");
-                        panic!();
-                    }
-                }
-            })
-            .collect();
-        let mut data: HashMap<usize, i64> = HashMap::new();
-        data_vec
-            .iter()
+            .filter_map(|s| s.parse::<i64>().ok())
             .enumerate()
-            .for_each(|(i, val)| *data.entry(i).or_default() = *val);
+            .collect();
+
         IntCode {
             data,
             current_pos: 0,

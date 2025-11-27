@@ -25,8 +25,11 @@ test_lib = []
 chrono = { version = "0.4.38", optional = true }
 dhat = { version = "0.3.3", optional = true }
 hashbrown = { version = "0.15.2", features = ["rayon", "serde"] }
+itertools = "0.14.0"
 pico-args = "0.5.0"
 rayon = "1.10.0"
 tinyjson = "2.5.1"
+aoc-mine = { git = "https://github.com/stevenwcarter/aoc-mine.git" }
+anyhow = "1.0.100"
 
 # Solution dependencies

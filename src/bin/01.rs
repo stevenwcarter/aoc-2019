@@ -42,16 +42,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_part_one() {
-        let result = part_one(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+    fn test_one() {
+        assert_eq!(part_one("1969"), Some(654));
+        assert_eq!(part_one("100756"), Some(33583));
     }
 
     #[test]
-    fn test_part_two() {
-        let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+    fn test_two() {
+        assert_eq!(part_two("100756"), Some(50346));
     }
+
+    // #[test]
+    // fn test_part_one() {
+    //     let result = part_one(&advent_of_code::template::read_file("examples", DAY));
+    //     assert_eq!(result, None);
+    // }
+    //
+    // #[test]
+    // fn test_part_two() {
+    //     let result = part_two(&advent_of_code::template::read_file("examples", DAY));
+    //     assert_eq!(result, None);
+    // }
     #[test]
     fn test_fuel_cost_calculation() {
         assert_eq!(calculate_total_cost_with_fuel(14 / 3 - 2, true), 2);

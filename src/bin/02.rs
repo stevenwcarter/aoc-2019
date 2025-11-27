@@ -44,14 +44,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_part_one() {
-        let result = part_one(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+    fn test_one() {
+        assert_eq!(part_one("1,1,1,4,99,5,6,0,99"), Some(30));
+        assert_eq!(part_one("2,4,4,5,99,0"), Some(2));
+        assert_eq!(part_one("1,0,0,0,99"), Some(2));
     }
 
-    #[test]
-    fn test_part_two() {
-        let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
-    }
+    // #[test]
+    // fn test_part_one() {
+    //     let result = part_one(&advent_of_code::template::read_file("examples", DAY));
+    //     assert_eq!(result, None);
+    // }
+    //
+    // #[test]
+    // fn test_part_two() {
+    //     let result = part_two(&advent_of_code::template::read_file("examples", DAY));
+    //     assert_eq!(result, None);
+    // }
 }
