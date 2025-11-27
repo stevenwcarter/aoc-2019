@@ -2,7 +2,10 @@ use std::str::FromStr;
 
 advent_of_code::solution!(4);
 
-struct Password(usize);
+struct Password {
+    number: usize,
+    digits: [u8; 6],
+}
 
 impl FromStr for Password {
     type Err = ();
@@ -12,13 +15,26 @@ impl FromStr for Password {
         if !(100000..=999999).contains(&num) {
             return Err(());
         }
-        Ok(Password(num))
+        Ok(Password {
+            number: num,
+            digits: {
+                let bytes = s.as_bytes();
+                [
+                    bytes[0] - b'0',
+                    bytes[1] - b'0',
+                    bytes[2] - b'0',
+                    bytes[3] - b'0',
+                    bytes[4] - b'0',
+                    bytes[5] - b'0',
+                ]
+            },
+        })
     }
 }
 
 impl AsRef<usize> for Password {
     fn as_ref(&self) -> &usize {
-        &self.0
+        &self.number
     }
 }
 
@@ -35,13 +51,8 @@ impl PartialOrd<usize> for Password {
 }
 
 impl Password {
-    fn digits(&self) -> Vec<u8> {
-        self.0
-            .to_string()
-            .as_bytes()
-            .iter()
-            .map(|b| b - b'0')
-            .collect()
+    fn digits(&self) -> [u8; 6] {
+        self.digits
     }
     fn has_adjacent(&self) -> bool {
         self.digits().windows(2).any(|w| w[0] == w[1])
