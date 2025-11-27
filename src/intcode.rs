@@ -104,7 +104,8 @@ impl IntCode {
             }
             3 => {
                 let value_a = self.get_literal_value_at(current_pos + 1, first_parameter_mode);
-                *self.data.entry(value_a as usize).or_default() = self.input.pop_front().unwrap();
+                *self.data.entry(value_a as usize).or_default() =
+                    self.input.pop_front().expect("input was empty");
                 self.current_pos += 2;
             }
             4 => {
@@ -184,6 +185,33 @@ pub fn intcode(data: &str) -> Vec<i64> {
     let max = *ic.data.keys().max().unwrap();
     (0..=max).map(|i| *ic.data.entry(i).or_default()).collect()
     // ic.data.values().copied().collect()
+}
+
+#[derive(Debug, Default)]
+pub struct IntCodeBuilder {
+    pub input: VecDeque<i64>,
+    pub quit: bool,
+}
+impl IntCodeBuilder {
+    pub fn input(mut self, input: i64) -> Self {
+        self.input.push_back(input);
+        self
+    }
+    pub fn input_prepend(mut self, input: i64) -> Self {
+        self.input.push_front(input);
+        self
+    }
+    pub fn quit(mut self, quit: bool) -> Self {
+        self.quit = quit;
+        self
+    }
+
+    pub fn build(self, data: &str) -> IntCode {
+        let mut ic = IntCode::new(data);
+        ic.quit = self.quit;
+        ic.input = self.input;
+        ic
+    }
 }
 
 #[cfg(test)]
