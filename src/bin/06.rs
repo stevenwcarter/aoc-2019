@@ -1,59 +1,87 @@
+use std::{
+    fmt::Display,
+    hash::{BuildHasherDefault, DefaultHasher},
+    sync::OnceLock,
+};
+
+use cached::proc_macro::cached;
 use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
+use std::hash::{Hash, Hasher};
+
+use nohash::NoHashHasher;
+
+type BuildNoHash = BuildHasherDefault<NoHashHasher<u64>>;
+type OptimizedMap = HashMap<u64, u64, BuildNoHash>;
 
 advent_of_code::solution!(6);
 
-fn count_orbits(map: &HashMap<&str, &str>, target: &str) -> usize {
-    if let Some(end) = map.get(target) {
-        1 + count_orbits(map, end)
+// Creating a OnceLock so the `count_orbits` doesn't need the map as a parameter for caching
+// purposes
+static PART1_MAP: OnceLock<OptimizedMap> = OnceLock::new();
+static PART2_MAP: OnceLock<OptimizedMap> = OnceLock::new();
+
+#[cached]
+fn count_orbits(target: u64) -> usize {
+    if let Some(end) = PART1_MAP.get().unwrap().get(&target) {
+        1 + count_orbits(*end)
     } else {
         0
     }
 }
 
-fn build_orbit_path<'a>(
-    map: &'a HashMap<&'a str, &'a str>,
-    target: &'a str,
-    end: &'a str,
-    path: &mut Vec<&'a str>,
-) {
+fn build_orbit_path(target: u64, end: u64, path: &mut Vec<u64>) {
     if target == end {
         return;
     }
-    if let Some(new_target) = map.get(target) {
-        path.push(new_target);
-        build_orbit_path(map, new_target, end, path);
+    if let Some(new_target) = PART2_MAP.get().unwrap().get(&target) {
+        path.push(*new_target);
+        build_orbit_path(*new_target, end, path);
     }
 }
-
+pub fn calculate_hash<T: Hash + Display>(t: &T) -> u64 {
+    let mut s = DefaultHasher::new();
+    t.hash(&mut s);
+    s.finish()
+}
 pub fn part_one(input: &str) -> Option<usize> {
-    let map: HashMap<&str, &str> = input
+    let map: OptimizedMap = input
         .lines()
         .filter_map(|l| l.split(')').rev().collect_tuple())
+        .map(|(a, b)| (calculate_hash(&a.trim()), calculate_hash(&b.trim())))
         .collect();
 
-    let ends: HashSet<&&str> = map.keys().collect();
+    let ends: HashSet<u64> = map.keys().copied().collect();
+
+    PART1_MAP.get_or_init(|| map);
 
     Some(
         ends.iter()
             // .inspect(|e| println!("\n!!!{e}!!!"))
-            .map(|e| count_orbits(&map, e))
+            .map(|e| count_orbits(*e))
             // .inspect(|c| println!("Orbit count: {c}"))
             .sum(),
     )
 }
 
 pub fn part_two(input: &str) -> Option<usize> {
-    let map: HashMap<&str, &str> = input
+    let map: OptimizedMap = input
         .lines()
         .filter_map(|l| l.split(')').rev().collect_tuple())
+        .map(|(a, b)| (calculate_hash(&a), calculate_hash(&b)))
         .collect();
 
-    let mut you_path: Vec<&str> = Vec::new();
-    build_orbit_path(&map, "YOU", "COM", &mut you_path);
+    let you = calculate_hash(&"YOU");
+    let san = calculate_hash(&"SAN");
+    let com = calculate_hash(&"COM");
 
-    let mut san_path: Vec<&str> = Vec::new();
-    build_orbit_path(&map, "SAN", "COM", &mut san_path);
+    PART2_MAP.get_or_init(|| map);
+
+    let mut you_path: Vec<u64> = Vec::new();
+    build_orbit_path(you, com, &mut you_path);
+
+    let mut san_path: Vec<u64> = Vec::new();
+    build_orbit_path(san, com, &mut san_path);
 
     for you_planet in you_path.clone() {
         if san_path.contains(&you_planet) {
