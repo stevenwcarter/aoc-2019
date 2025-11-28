@@ -31,5 +31,7 @@ rayon = "1.10.0"
 tinyjson = "2.5.1"
 aoc-mine = { git = "https://github.com/stevenwcarter/aoc-mine.git" }
 anyhow = "1.0.100"
+cached = "0.56.0"
+nohash = "0.2.0"
 
 # Solution dependencies
