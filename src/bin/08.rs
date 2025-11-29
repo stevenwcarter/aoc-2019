@@ -6,13 +6,6 @@ use aoc_mine::Coord;
 const WIDTH: usize = 25;
 const HEIGHT: usize = 6;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Color {
-    Black = 0,
-    White = 1,
-    Transparent = 2,
-}
-
 struct ImageLayers {
     layers: Vec<ImageLayer>,
 }
@@ -47,19 +40,6 @@ impl ImageLayers {
     }
 
     fn find_part_two(&self) -> Option<u64> {
-        let mut min_zero_count = usize::MAX;
-        let mut result = 0;
-
-        for layer in &self.layers {
-            let zero_count = layer.pixels.iter().filter(|&&p| p == 0).count();
-            if zero_count < min_zero_count {
-                min_zero_count = zero_count;
-                let one_count = layer.pixels.iter().filter(|&&p| p == 1).count();
-                let two_count = layer.pixels.iter().filter(|&&p| p == 2).count();
-                result = (one_count * two_count) as u64;
-            }
-        }
-
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
                 let color = self.find_color_at_coord(Coord::new(x, y));
@@ -123,7 +103,6 @@ pub fn part_two(input: &str) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     // #[test]
     // fn test_part_one() {

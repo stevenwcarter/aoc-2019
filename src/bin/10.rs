@@ -1,4 +1,3 @@
-use anyhow::{ensure, Context};
 use aoc_mine::{Coord, Grid, LinearGrid};
 
 advent_of_code::solution!(10);
@@ -36,26 +35,6 @@ fn calculate_angle(c1: Coord<usize>, c2: Coord<usize>) -> f32 {
     // 2. Cast to f32 and call atan2
     // Result is in Radians: -3.14 to +3.14
     (dy as f32).atan2(dx as f32).to_degrees()
-}
-
-fn calculate_slope(coord1: Coord<usize>, coord2: Coord<usize>) -> (isize, isize) {
-    let dy = coord2.1 as isize - coord1.1 as isize;
-    let dx = coord2.0 as isize - coord1.0 as isize;
-
-    let gcd = gcd(dx.unsigned_abs(), dy.unsigned_abs());
-
-    if gcd == 0 {
-        return (0, 0);
-    }
-
-    (dx / gcd, dy / gcd)
-}
-
-fn gcd(abs_1: usize, abs_2: usize) -> isize {
-    if abs_2 == 0 {
-        return abs_1 as isize;
-    }
-    gcd(abs_2, abs_1 % abs_2)
 }
 
 pub fn part_one(input: &str) -> Option<usize> {

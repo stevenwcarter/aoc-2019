@@ -18,8 +18,6 @@ pub fn part_two(input: &str) -> Option<i64> {
 mod tests {
     use advent_of_code::intcode::IntCode;
 
-    use super::*;
-
     #[test]
     fn test_one_1() {
         let input = "104,1125899906842624,99";
