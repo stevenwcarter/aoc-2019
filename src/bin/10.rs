@@ -1,8 +1,16 @@
+use anyhow::{ensure, Context};
 use aoc_mine::{Coord, Grid, LinearGrid};
 
 advent_of_code::solution!(10);
 
-const ANGLE_INCREMENT: f32 = 0.05;
+#[derive(Debug, Clone)]
+struct Target {
+    angle: f32,
+    dist: usize,
+    coord: Coord<usize>,
+    // We will calculate this
+    lap: usize,
+}
 
 fn display_grid(grid: &LinearGrid<usize, bool>) {
     for y in 0..grid.height() {
@@ -19,11 +27,26 @@ fn display_grid(grid: &LinearGrid<usize, bool>) {
     }
 }
 
-fn calculate_slope(coord1: &Coord<usize>, coord2: &Coord<usize>) -> (isize, isize) {
+#[inline]
+fn calculate_angle(c1: Coord<usize>, c2: Coord<usize>) -> f32 {
+    // 1. Calculate delta (still need isize for direction)
+    let dy = c2.1 as isize - c1.1 as isize;
+    let dx = c2.0 as isize - c1.0 as isize;
+
+    // 2. Cast to f32 and call atan2
+    // Result is in Radians: -3.14 to +3.14
+    (dy as f32).atan2(dx as f32).to_degrees()
+}
+
+fn calculate_slope(coord1: Coord<usize>, coord2: Coord<usize>) -> (isize, isize) {
     let dy = coord2.1 as isize - coord1.1 as isize;
     let dx = coord2.0 as isize - coord1.0 as isize;
 
     let gcd = gcd(dx.unsigned_abs(), dy.unsigned_abs());
+
+    if gcd == 0 {
+        return (0, 0);
+    }
 
     (dx / gcd, dy / gcd)
 }
@@ -61,12 +84,12 @@ pub fn part_one(input: &str) -> Option<usize> {
     grid.iter()
         .filter(|(_, is_asteroid)| *is_asteroid)
         .map(|(coord, _)| {
-            let mut slopes: Vec<(isize, isize)> = Vec::new();
+            let mut slopes: Vec<f32> = Vec::new();
             grid.iter()
                 .filter(|(_, is_asteroid)| *is_asteroid)
                 .filter(|(other_coord, _)| other_coord != &coord)
                 .for_each(|(other_coord, _)| {
-                    let slope = calculate_slope(&coord, &other_coord);
+                    let slope = calculate_angle(coord, other_coord);
                     if !slopes.contains(&slope) {
                         slopes.push(slope);
                     }
@@ -77,95 +100,87 @@ pub fn part_one(input: &str) -> Option<usize> {
 }
 
 pub fn part_two(input: &str) -> Option<u64> {
-    let height = input.lines().collect::<Vec<&str>>().len();
-    let width = input
-        .lines()
-        .next()
-        .unwrap()
-        .trim()
-        .chars()
-        .collect::<Vec<char>>()
-        .len();
+    #[cfg(test)]
+    let start_asteroid = Coord(11, 13);
+    #[cfg(not(test))]
+    let start_asteroid = Coord(28, 29);
 
-    let start_asteroid = if height < 30 {
-        Coord(11, 13)
-    } else {
-        Coord(28, 29)
-    };
-
-    let mut grid: LinearGrid<usize, bool> = LinearGrid::new(width, height, false);
+    let mut angles_and_distances: Vec<(f32, usize, Coord<usize>)> = Vec::new();
     input.lines().enumerate().for_each(|(y, line)| {
         line.chars()
             .enumerate()
             .filter(|&(_, c)| c == '#')
             .for_each(|(x, _)| {
-                let _ = grid.insert(Coord(x, y), true);
+                if Coord(x, y) == start_asteroid {
+                    return;
+                }
+                let mut angle_to_asteroid = calculate_angle(start_asteroid, Coord(x, y));
+                angle_to_asteroid -= 270.0;
+                while angle_to_asteroid < 0.0 {
+                    angle_to_asteroid += 360.0;
+                }
+                let distance_to_target = ((x as isize - start_asteroid.0 as isize).pow(2)
+                    + (y as isize - start_asteroid.1 as isize).pow(2))
+                    as usize;
+                angles_and_distances.push((angle_to_asteroid, distance_to_target, Coord(x, y)));
             });
     });
 
-    // Laser starts pointing UP, then rotates clockwise. Laser only hits asteroids that are visible
-    // (no other asteroids in the way).
-    // Find the 200th asteroid to be vaporized, and return its coordinates as x * 100 + y.
+    let coord = get_200th_target(angles_and_distances).expect("could not find target");
+    Some((coord.2 .0 as u64) * 100 + (coord.2 .1 as u64))
+}
 
-    let mut angle: f32 = 270.0;
-    let laser_origin = start_asteroid;
-    let mut vaporized_count = 0;
-    let mut loop_counter = 0;
-    let mut vaporized_asteroids: Vec<Coord<usize>> = Vec::new();
-    loop {
-        let mut targets: Vec<(f32, Coord<usize>)> = Vec::new();
-        grid.iter()
-            .filter(|(coord, is_asteroid)| *is_asteroid && *coord != laser_origin)
-            .for_each(|(coord, _)| {
-                let slope = calculate_slope(&laser_origin, &coord);
-                let angle_to_asteroid = (slope.1 as f32).atan2(slope.0 as f32).to_degrees();
+fn get_200th_target(
+    raw_data: Vec<(f32, usize, Coord<usize>)>,
+) -> Option<(f32, usize, Coord<usize>)> {
+    assert!(raw_data.len() >= 200,);
+    // 1. Convert to struct for easier handling
+    let mut targets: Vec<Target> = raw_data
+        .into_iter()
+        .map(|(angle, dist, coord)| Target {
+            angle,
+            dist,
+            coord,
+            lap: 0,
+        })
+        .collect();
 
-                let mut adjusted_angle = angle_to_asteroid - angle;
-                while adjusted_angle < 0.0 {
-                    adjusted_angle += 360.0;
-                }
-                if adjusted_angle <= ANGLE_INCREMENT {
-                    targets.push((adjusted_angle, coord));
-                }
-            });
+    // 2. Primary Sort: Group by Angle, then by Distance
+    // We use total_cmp because f32 is not Ord by default
+    targets.sort_unstable_by(|a, b| {
+        a.angle
+            .total_cmp(&b.angle)
+            .then_with(|| a.dist.cmp(&b.dist))
+    });
 
-        targets.sort_by(|a, b| {
-            // sort by smallest angle first
-            // find closest to the origin
-            let dist_a = ((a.1 .0 as isize - laser_origin.0 as isize).pow(2)
-                + (a.1 .1 as isize - laser_origin.1 as isize).pow(2))
-                as f32;
-            let dist_b = ((b.1 .0 as isize - laser_origin.0 as isize).pow(2)
-                + (b.1 .1 as isize - laser_origin.1 as isize).pow(2))
-                as f32;
-            dist_a.partial_cmp(&dist_b).unwrap()
-        });
+    // 3. Assign "Lap" indices
+    // We iterate through. If the angle is the same as the previous,
+    // we increment the lap count. If it's a new angle, reset to 0.
+    let mut current_lap = 0;
 
-        if let Some((_, target_coord)) = targets.first() {
-            vaporized_count += 1;
-            vaporized_asteroids.push(*target_coord);
-            grid.insert(*target_coord, false)
-                .expect("could not mark asteroid as vaporized");
-            if vaporized_count == 200 {
-                // for i in [0, 1, 2, 9, 19, 49, 99, 198, 199] {
-                //     println!("{}: {:?}", i + 1, vaporized_asteroids[i]);
-                // }
-                return Some(target_coord.0 as u64 * 100 + target_coord.1 as u64);
-            }
+    // We can't compare the first element to a 'previous' one easily in a loop,
+    // so we handle the logic by peeking or tracking state.
+    for i in 1..targets.len() {
+        // Check if current angle is "identical" to previous
+        // Note: With f32, exact equality (==) is risky, but your prompt
+        // implies discrete "identical" angles. If these are calculated values,
+        // consider using an epsilon tolerance here.
+        if targets[i].angle == targets[i - 1].angle {
+            current_lap += 1;
+        } else {
+            current_lap = 0;
         }
-
-        angle += ANGLE_INCREMENT;
-        if angle >= 360.0 {
-            angle -= 360.0;
-        }
-
-        loop_counter += 1;
-        if loop_counter > 9000 {
-            break;
-        }
+        targets[i].lap = current_lap;
     }
 
-    None
+    // 4. Find the 200th element
+    // We want the order: Lap (Ascending), then Angle (Ascending)
+    // select_nth_unstable is O(N) on average, faster than full sort.
+    let (_, target, _) = targets.select_nth_unstable_by(199, |a, b| {
+        a.lap.cmp(&b.lap).then_with(|| a.angle.total_cmp(&b.angle))
+    });
+
+    Some((target.angle, target.dist, target.coord))
 }
 
 #[cfg(test)]
