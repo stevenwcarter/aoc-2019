@@ -152,7 +152,7 @@ fn display_grid(grid: &HashGrid<isize, u8>) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
     // #[test]
     // fn test_part_one() {
