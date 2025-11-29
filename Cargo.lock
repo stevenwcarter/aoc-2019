@@ -70,7 +70,7 @@ checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 [[package]]
 name = "aoc-mine"
 version = "0.1.0"
-source = "git+https://github.com/stevenwcarter/aoc-mine.git#90c33e9a062dec47da1ccd6b71ef813dcf1643b6"
+source = "git+https://github.com/stevenwcarter/aoc-mine.git#f9c978559fe123da080f89daa2fdf83d7ab12535"
 dependencies = [
  "anyhow",
  "hashbrown 0.16.1",
