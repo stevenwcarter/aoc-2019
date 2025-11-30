@@ -1,3 +1,4 @@
+#![allow(dead_code, unused)]
 use std::{str::FromStr, thread::sleep, time::Duration};
 
 use advent_of_code::intcode::IntCodeBuilder;

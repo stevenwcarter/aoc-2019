@@ -21,6 +21,17 @@ impl ParameterMode {
     }
 }
 
+impl From<i64> for ParameterMode {
+    fn from(value: i64) -> Self {
+        match value {
+            0 => ParameterMode::Direct,
+            1 => ParameterMode::Immediate,
+            2 => ParameterMode::Relative,
+            _ => panic!("Not a valid paramter {value}"),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct IntCode {
     pub data: HashMap<usize, i64>,
@@ -90,12 +101,10 @@ impl IntCode {
 
     pub fn process_step(&mut self, stop_on_output: bool) -> bool {
         let mut keep_going = true;
-        let opcode = format!("{:0>5}", *self.data.get(&self.current_pos).unwrap());
+        let (opcode, first_parameter_mode, second_parameter_mode, third_parameter_mode) =
+            parse_opcode(self.data.get(&self.current_pos).unwrap());
         let current_pos = self.current_pos;
-        let third_parameter_mode = ParameterMode::new(&opcode[0..1]);
-        let second_parameter_mode = ParameterMode::new(&opcode[1..2]);
-        let first_parameter_mode = ParameterMode::new(&opcode[2..3]);
-        let opcode = parse(&opcode.as_bytes()[3..5]).unwrap();
+
         match opcode {
             1 => {
                 let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
@@ -192,6 +201,27 @@ impl IntCode {
         }
     }
 }
+
+fn parse_opcode(n: &i64) -> (usize, ParameterMode, ParameterMode, ParameterMode) {
+    let opcode = (n % 100) as usize;
+
+    let first_mode_val = (n / 100) % 10;
+    let first_parameter_mode = ParameterMode::from(first_mode_val);
+
+    let second_mode_val = (n / 1000) % 10;
+    let second_parameter_mode = ParameterMode::from(second_mode_val);
+
+    let third_mode_val = (n / 10000) % 10;
+    let third_parameter_mode = ParameterMode::from(third_mode_val);
+
+    (
+        opcode,
+        first_parameter_mode,
+        second_parameter_mode,
+        third_parameter_mode,
+    )
+}
+
 pub fn intcode(data: &str) -> Vec<i64> {
     let mut ic = IntCode::new(data);
 
@@ -368,5 +398,26 @@ mod tests {
         ic.add_input(32);
         ic.process(false);
         assert_eq!(*ic.output.first().unwrap(), 32);
+    }
+    #[test]
+    fn test_parse_opcode() {
+        assert_eq!(
+            parse_opcode(&1002),
+            (
+                2,
+                ParameterMode::Direct,
+                ParameterMode::Immediate,
+                ParameterMode::Direct
+            )
+        );
+        assert_eq!(
+            parse_opcode(&1101),
+            (
+                1,
+                ParameterMode::Immediate,
+                ParameterMode::Immediate,
+                ParameterMode::Direct
+            )
+        );
     }
 }
