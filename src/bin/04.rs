@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use atoi_simd::parse;
+
 advent_of_code::solution!(4);
 
 struct Password {
@@ -11,7 +13,11 @@ impl FromStr for Password {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let num: usize = s.parse().map_err(|_| ())?;
+        let len = s.len();
+        if len != 6 {
+            return Err(());
+        }
+        let num: usize = parse(s.as_bytes()).map_err(|_| ())?;
         if !(100000..=999999).contains(&num) {
             return Err(());
         }
@@ -28,6 +34,35 @@ impl FromStr for Password {
                     bytes[5] - b'0',
                 ]
             },
+        })
+    }
+}
+
+fn extract_digits(value: usize) -> [u8; 6] {
+    let mut value = value;
+    let mut container = [0u8; 6];
+
+    (0..6).rev().for_each(|i| {
+        container[i] = (value % 10) as u8;
+        value /= 10;
+    });
+
+    container
+}
+
+impl TryFrom<usize> for Password {
+    type Error = ();
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        if !(100000..1000000).contains(&value) {
+            return Err(());
+        }
+
+        let digits = extract_digits(value);
+
+        Ok(Password {
+            number: value,
+            digits,
         })
     }
 }
@@ -92,11 +127,11 @@ impl Password {
 
 pub fn part_one(input: &str) -> Option<usize> {
     let range = input.trim().split_once('-')?;
-    let start: usize = range.0.parse().ok()?;
-    let end: usize = range.1.parse().ok()?;
+    let start: usize = parse(range.0.as_bytes()).ok()?;
+    let end: usize = parse(range.1.as_bytes()).ok()?;
     Some(
         (start..=end)
-            .filter_map(|n| n.to_string().parse::<Password>().ok())
+            .filter_map(|n| Password::try_from(n).ok())
             .filter(|p| p.is_valid(start, end))
             .count(),
     )
@@ -104,11 +139,11 @@ pub fn part_one(input: &str) -> Option<usize> {
 
 pub fn part_two(input: &str) -> Option<usize> {
     let range = input.trim().split_once('-')?;
-    let start: usize = range.0.parse().ok()?;
-    let end: usize = range.1.parse().ok()?;
+    let start: usize = parse(range.0.as_bytes()).ok()?;
+    let end: usize = parse(range.1.as_bytes()).ok()?;
     Some(
         (start..=end)
-            .filter_map(|n| n.to_string().parse::<Password>().ok())
+            .filter_map(|n| Password::try_from(n).ok())
             .filter(|p| p.is_valid_strict(start, end))
             .count(),
     )
@@ -128,5 +163,10 @@ mod tests {
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_extract_digits() {
+        assert_eq!(extract_digits(123456), [1, 2, 3, 4, 5, 6]);
     }
 }
