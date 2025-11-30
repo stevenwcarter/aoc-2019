@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, thread::sleep, time::Duration};
 
 use advent_of_code::intcode::IntCodeBuilder;
 use aoc_mine::{Coord, Grid, HashGrid};
@@ -62,6 +62,7 @@ impl Game {
     }
 
     pub fn draw(&self) {
+        print!("{}[2J", 27 as char);
         let min_x = self.tiles.iter().map(|(c, _)| c.0).min().unwrap_or(0);
         let max_x = self.tiles.iter().map(|(c, _)| c.0).max().unwrap_or(0);
         let min_y = self.tiles.iter().map(|(c, _)| c.1).min().unwrap_or(0);
@@ -103,6 +104,7 @@ impl Game {
             .or_insert(TileType::Empty) = tile.tile_type;
         if tile.tile_type == TileType::Ball || tile.tile_type == TileType::Paddle {
             self.draw();
+            sleep(Duration::from_millis(7));
         }
     }
 
