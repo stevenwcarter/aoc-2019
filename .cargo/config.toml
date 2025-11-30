@@ -13,3 +13,6 @@ AOC_YEAR = "2019"
 
 [build]
 rustflags = ["-C", "target-cpu=native"]
+
+# [patch."https://github.com/stevenwcarter/aoc-mine.git"]
+# aoc-mine = { path = "../aoc-mine" }
