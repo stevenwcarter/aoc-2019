@@ -1,6 +1,7 @@
 advent_of_code::solution!(3);
 
 use anyhow::Result;
+use atoi_simd::parse;
 
 use std::str::FromStr;
 
@@ -52,7 +53,7 @@ impl FromStr for Instruction {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (dir, dist) = s.split_at(1);
         let direction = dir.parse()?;
-        let distance = dist.parse().map_err(|_| ())?;
+        let distance = parse(dist.as_bytes()).unwrap();
         Ok(Instruction {
             direction,
             distance,
