@@ -71,11 +71,11 @@ impl Game {
             let mut line = String::new();
             for x in min_x..=max_x {
                 let display_char = match self.tiles.get(&Coord(x, y)) {
-                    Some(TileType::Empty) | None => "  ",
-                    Some(TileType::Wall) => "##",
-                    Some(TileType::Block) => "XX",
-                    Some(TileType::Paddle) => "==",
-                    Some(TileType::Ball) => "oo",
+                    Some(TileType::Empty) | None => " ",
+                    Some(TileType::Wall) => "",
+                    Some(TileType::Block) => "",
+                    Some(TileType::Paddle) => "",
+                    Some(TileType::Ball) => "󰔇",
                 };
                 line.push_str(display_char);
             }
@@ -102,7 +102,7 @@ impl Game {
             .entry(Coord(tile.x as i32, tile.y as i32))
             .or_insert(TileType::Empty) = tile.tile_type;
         if tile.tile_type == TileType::Ball || tile.tile_type == TileType::Paddle {
-            // self.draw();
+            self.draw();
         }
     }
 
