@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use atoi_simd::parse;
 use hashbrown::HashMap;
+use nohash::BuildNoHashHasher;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParameterMode {
@@ -34,7 +35,7 @@ impl From<i64> for ParameterMode {
 
 #[derive(Debug, Clone)]
 pub struct IntCode {
-    pub data: HashMap<usize, i64>,
+    pub data: HashMap<usize, i64, BuildNoHashHasher<usize>>,
     pub current_pos: usize,
     pub output: Vec<i64>,
     pub input: VecDeque<i64>,
@@ -44,7 +45,7 @@ pub struct IntCode {
 }
 impl IntCode {
     pub fn new(data: &str) -> Self {
-        let data: HashMap<usize, i64> = data
+        let data = data
             .trim()
             .split(',')
             .filter_map(|s| parse(s.as_bytes()).ok())
@@ -76,22 +77,21 @@ impl IntCode {
     }
 
     pub fn get_value_at(&mut self, idx: usize, parameter_mode: ParameterMode) -> i64 {
+        let base: i64 = *self.data.entry(idx).or_default();
         match parameter_mode {
-            ParameterMode::Direct => self.get_value_at(
-                *self.data.get(&idx).unwrap() as usize,
-                ParameterMode::Immediate,
-            ),
-            ParameterMode::Immediate => *self.data.entry(idx).or_default(),
+            ParameterMode::Direct => self.get_value_at(base as usize, ParameterMode::Immediate),
+            ParameterMode::Immediate => base,
             ParameterMode::Relative => self.get_value_at(
-                (*self.data.get(&idx).unwrap() + self.relative_base) as usize,
+                (base + self.relative_base) as usize,
                 ParameterMode::Immediate,
             ),
         }
     }
     pub fn get_literal_value_at(&mut self, idx: usize, parameter_mode: ParameterMode) -> i64 {
+        let base = self.data.entry(idx).or_default();
         match parameter_mode {
-            ParameterMode::Direct | ParameterMode::Immediate => *self.data.entry(idx).or_default(),
-            ParameterMode::Relative => *self.data.entry(idx).or_default() + self.relative_base,
+            ParameterMode::Direct | ParameterMode::Immediate => *base,
+            ParameterMode::Relative => *base + self.relative_base,
         }
     }
 
@@ -101,92 +101,96 @@ impl IntCode {
 
     pub fn process_step(&mut self, stop_on_output: bool) -> bool {
         let mut keep_going = true;
-        let (opcode, first_parameter_mode, second_parameter_mode, third_parameter_mode) =
-            parse_opcode(self.data.get(&self.current_pos).unwrap());
-        let current_pos = self.current_pos;
 
-        match opcode {
-            1 => {
-                let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
-                let value_b = self.get_value_at(current_pos + 2, second_parameter_mode);
-                let value_idx_c = self.get_literal_value_at(current_pos + 3, third_parameter_mode);
-                *self.data.entry(value_idx_c as usize).or_default() = value_a + value_b;
-                self.current_pos += 4;
-            }
-            2 => {
-                let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
-                let value_b = self.get_value_at(current_pos + 2, second_parameter_mode);
-                let value_idx_c = self.get_literal_value_at(current_pos + 3, third_parameter_mode);
-                *self.data.entry(value_idx_c as usize).or_default() = value_a * value_b;
-                self.current_pos += 4;
-            }
-            3 => {
-                let value_a = self.get_literal_value_at(current_pos + 1, first_parameter_mode);
-                if self.input.is_empty() {
-                    keep_going = false;
-                    self.waiting_for_input = Some(value_a);
-                } else {
-                    *self.data.entry(value_a as usize).or_default() =
-                        self.input.pop_front().expect("input was empty");
+        while keep_going {
+            let (opcode, first_parameter_mode, second_parameter_mode, third_parameter_mode) =
+                parse_opcode(self.data.get(&self.current_pos).unwrap());
+            let current_pos = self.current_pos;
+
+            match opcode {
+                1 => {
+                    let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
+                    let value_b = self.get_value_at(current_pos + 2, second_parameter_mode);
+                    let value_idx_c =
+                        self.get_literal_value_at(current_pos + 3, third_parameter_mode);
+                    self.data.insert(value_idx_c as usize, value_a + value_b);
+                    self.current_pos += 4;
+                }
+                2 => {
+                    let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
+                    let value_b = self.get_value_at(current_pos + 2, second_parameter_mode);
+                    let value_idx_c =
+                        self.get_literal_value_at(current_pos + 3, third_parameter_mode);
+                    self.data.insert(value_idx_c as usize, value_a * value_b);
+                    self.current_pos += 4;
+                }
+                3 => {
+                    let value_a = self.get_literal_value_at(current_pos + 1, first_parameter_mode);
+                    if let Some(input) = self.input.pop_front() {
+                        self.data.insert(value_a as usize, input);
+                        self.current_pos += 2;
+                    } else {
+                        keep_going = false;
+                        self.waiting_for_input = Some(value_a);
+                    }
+                }
+                4 => {
+                    let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
+                    self.output.push(value_a);
+                    self.current_pos += 2;
+                    if stop_on_output {
+                        keep_going = false;
+                    }
+                }
+                // jump-if-true - if the first parameter is non-zero, it sets the instruction pointer to the value from the second parameter. Otherwise, it does nothing.
+                5 => {
+                    let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
+                    if value_a != 0 {
+                        self.current_pos =
+                            self.get_value_at(current_pos + 2, second_parameter_mode) as usize;
+                    } else {
+                        self.current_pos += 3;
+                    }
+                }
+                // jump-if-false
+                6 => {
+                    let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
+                    if value_a == 0 {
+                        self.current_pos =
+                            self.get_value_at(current_pos + 2, second_parameter_mode) as usize;
+                    } else {
+                        self.current_pos += 3;
+                    }
+                }
+                // less than
+                7 => {
+                    let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
+                    let value_b = self.get_value_at(current_pos + 2, second_parameter_mode);
+                    let value_c = self.get_literal_value_at(current_pos + 3, third_parameter_mode);
+                    let value = if value_a < value_b { 1 } else { 0 };
+                    self.data.insert(value_c as usize, value);
+                    self.current_pos += 4;
+                }
+                8 => {
+                    let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
+                    let value_b = self.get_value_at(current_pos + 2, second_parameter_mode);
+                    let value_c = self.get_literal_value_at(current_pos + 3, third_parameter_mode);
+                    let value = if value_a == value_b { 1 } else { 0 };
+                    self.data.insert(value_c as usize, value);
+                    self.current_pos += 4;
+                }
+                9 => {
+                    let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
+                    self.relative_base += value_a;
                     self.current_pos += 2;
                 }
-            }
-            4 => {
-                let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
-                self.output.push(value_a);
-                if stop_on_output {
+                99 => {
+                    self.quit = true;
                     keep_going = false;
                 }
-                self.current_pos += 2;
-            }
-            // jump-if-true - if the first parameter is non-zero, it sets the instruction pointer to the value from the second parameter. Otherwise, it does nothing.
-            5 => {
-                let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
-                if value_a != 0 {
-                    self.current_pos =
-                        self.get_value_at(current_pos + 2, second_parameter_mode) as usize;
-                } else {
-                    self.current_pos += 3;
+                _ => {
+                    unreachable!("Should not have hit here")
                 }
-            }
-            // jump-if-false
-            6 => {
-                let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
-                if value_a == 0 {
-                    self.current_pos =
-                        self.get_value_at(current_pos + 2, second_parameter_mode) as usize;
-                } else {
-                    self.current_pos += 3;
-                }
-            }
-            // less than
-            7 => {
-                let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
-                let value_b = self.get_value_at(current_pos + 2, second_parameter_mode);
-                let value_c = self.get_literal_value_at(current_pos + 3, third_parameter_mode);
-                let value = if value_a < value_b { 1 } else { 0 };
-                *self.data.entry(value_c as usize).or_default() = value;
-                self.current_pos += 4;
-            }
-            8 => {
-                let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
-                let value_b = self.get_value_at(current_pos + 2, second_parameter_mode);
-                let value_c = self.get_literal_value_at(current_pos + 3, third_parameter_mode);
-                let value = if value_a == value_b { 1 } else { 0 };
-                *self.data.entry(value_c as usize).or_default() = value;
-                self.current_pos += 4;
-            }
-            9 => {
-                let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
-                self.relative_base += value_a;
-                self.current_pos += 2;
-            }
-            99 => {
-                self.quit = true;
-                keep_going = false;
-            }
-            _ => {
-                unreachable!("Should not have hit here")
             }
         }
 
@@ -227,7 +231,10 @@ pub fn intcode(data: &str) -> Vec<i64> {
 
     ic.process(false);
     let max = *ic.data.keys().max().unwrap();
-    (0..=max).map(|i| *ic.data.entry(i).or_default()).collect()
+    (0..=max)
+        .map(|i| ic.data.get(&i).unwrap_or(&0))
+        .copied()
+        .collect()
     // ic.data.values().copied().collect()
 }
 
