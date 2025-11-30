@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use atoi_simd::parse;
 use hashbrown::HashMap;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -35,7 +36,7 @@ impl IntCode {
         let data: HashMap<usize, i64> = data
             .trim()
             .split(',')
-            .filter_map(|s| s.parse::<i64>().ok())
+            .filter_map(|s| parse(s.as_bytes()).ok())
             .enumerate()
             .collect();
 
@@ -94,7 +95,7 @@ impl IntCode {
         let third_parameter_mode = ParameterMode::new(&opcode[0..1]);
         let second_parameter_mode = ParameterMode::new(&opcode[1..2]);
         let first_parameter_mode = ParameterMode::new(&opcode[2..3]);
-        let opcode = opcode[3..5].parse::<usize>().unwrap();
+        let opcode = parse(&opcode.as_bytes()[3..5]).unwrap();
         match opcode {
             1 => {
                 let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);

@@ -103,8 +103,8 @@ impl Game {
             .entry(Coord(tile.x as i32, tile.y as i32))
             .or_insert(TileType::Empty) = tile.tile_type;
         if tile.tile_type == TileType::Ball || tile.tile_type == TileType::Paddle {
-            self.draw();
-            sleep(Duration::from_millis(7));
+            // self.draw();
+            // sleep(Duration::from_millis(7));
         }
     }
 
