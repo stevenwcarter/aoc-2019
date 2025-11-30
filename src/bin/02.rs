@@ -5,11 +5,11 @@ use advent_of_code::intcode::IntCode;
 fn attempt(ic: &IntCode, a: usize, b: usize) -> usize {
     let mut ic = ic.clone();
 
-    *ic.data.entry(1).or_default() = a as i64;
-    *ic.data.entry(2).or_default() = b as i64;
+    ic.data.insert(1, a as i64);
+    ic.data.insert(2, b as i64);
 
     ic.process(false);
-    *ic.data.entry(0).or_default() as usize
+    *ic.data.get(&0).unwrap() as usize
 }
 
 pub fn part_one(input: &str) -> Option<usize> {
@@ -21,22 +21,16 @@ pub fn part_one(input: &str) -> Option<usize> {
 pub fn part_two(input: &str) -> Option<usize> {
     let ic = IntCode::new(input);
 
-    let mut noun_result = 0;
-    let mut verb_result = 0;
-
-    (0..100).for_each(|noun| {
-        (0..100).for_each(|verb| {
-            if noun_result == 0 {
-                let result = attempt(&ic, noun, verb);
-                if result == 19690720 {
-                    noun_result = noun;
-                    verb_result = verb;
-                }
+    for noun in (0..100).rev() {
+        for verb in (0..100).rev() {
+            let result = attempt(&ic, noun, verb);
+            if result == 19690720 {
+                return Some(100 * noun + verb);
             }
-        });
-    });
+        }
+    }
 
-    Some(100 * noun_result + verb_result)
+    None
 }
 
 #[cfg(test)]

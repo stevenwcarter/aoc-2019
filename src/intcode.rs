@@ -235,28 +235,29 @@ pub fn intcode(data: &str) -> Vec<i64> {
         .map(|i| ic.data.get(&i).unwrap_or(&0))
         .copied()
         .collect()
-    // ic.data.values().copied().collect()
 }
 
+/// Small builder for better ergonomics around setting up an intcode computer
 #[derive(Debug, Default)]
 pub struct IntCodeBuilder {
     pub input: VecDeque<i64>,
     pub quit: bool,
 }
 impl IntCodeBuilder {
+    /// set an input item. Each time this is called, it is added to the back of the list
     pub fn input(mut self, input: i64) -> Self {
         self.input.push_back(input);
         self
     }
+
+    /// Pushes an input to the front of the queue
     pub fn input_prepend(mut self, input: i64) -> Self {
         self.input.push_front(input);
         self
     }
-    pub fn quit(mut self, quit: bool) -> Self {
-        self.quit = quit;
-        self
-    }
 
+    /// Final build step to create the IntCode computer. Takes the string input for the intcode
+    /// computer as its only parameter and returns an `IntCode` instance.
     pub fn build(self, data: &str) -> IntCode {
         let mut ic = IntCode::new(data);
         ic.quit = self.quit;
