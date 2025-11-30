@@ -28,6 +28,7 @@ pub struct IntCode {
     pub input: VecDeque<i64>,
     pub quit: bool,
     pub relative_base: i64,
+    pub waiting_for_input: Option<i64>,
 }
 impl IntCode {
     pub fn new(data: &str) -> Self {
@@ -44,12 +45,19 @@ impl IntCode {
             output: Vec::new(),
             input: VecDeque::new(),
             quit: false,
+            waiting_for_input: None,
             relative_base: 0,
         }
     }
 
     pub fn add_input(&mut self, input: i64) {
-        self.input.push_back(input);
+        if let Some(value_a) = self.waiting_for_input {
+            self.waiting_for_input = None;
+            *self.data.entry(value_a as usize).or_default() = input;
+            self.current_pos += 2;
+        } else {
+            self.input.push_back(input);
+        }
     }
     pub fn get_last_output(&self) -> i64 {
         *self.output.iter().last().unwrap()
@@ -104,9 +112,14 @@ impl IntCode {
             }
             3 => {
                 let value_a = self.get_literal_value_at(current_pos + 1, first_parameter_mode);
-                *self.data.entry(value_a as usize).or_default() =
-                    self.input.pop_front().expect("input was empty");
-                self.current_pos += 2;
+                if self.input.is_empty() {
+                    keep_going = false;
+                    self.waiting_for_input = Some(value_a);
+                } else {
+                    *self.data.entry(value_a as usize).or_default() =
+                        self.input.pop_front().expect("input was empty");
+                    self.current_pos += 2;
+                }
             }
             4 => {
                 let value_a = self.get_value_at(current_pos + 1, first_parameter_mode);
