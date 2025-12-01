@@ -2,6 +2,7 @@ advent_of_code::solution!(3);
 
 use anyhow::Result;
 use atoi_simd::parse;
+use terminal_size::{terminal_size, Height, Width};
 
 use std::str::FromStr;
 
@@ -94,6 +95,91 @@ impl<'a> Wire<'a> {
             }
         }
     }
+
+    pub fn reduce_grid_to_term(
+        grid: &HashGrid<i32, (usize, usize)>,
+        term_width: usize,
+        term_height: usize,
+    ) -> Vec<Vec<usize>> {
+        // If empty, return an empty reduced grid
+        if grid.iter().count() == 0 {
+            return vec![vec![0; term_width]; term_height];
+        }
+
+        // Find original grid bounds
+        let main_min_x = grid.iter().map(|(c, _)| c.x()).min().unwrap();
+        let main_max_x = grid.iter().map(|(c, _)| c.x()).max().unwrap();
+        let main_min_y = grid.iter().map(|(c, _)| c.y()).min().unwrap();
+        let main_max_y = grid.iter().map(|(c, _)| c.y()).max().unwrap();
+
+        let spread_x = (main_max_x - main_min_x + 1) as f32;
+        let spread_y = (main_max_y - main_min_y + 1) as f32;
+
+        // How many original units map to a single reduced-cell?
+        let scale_x = (spread_x / term_width as f32).ceil().max(1.0);
+        let scale_y = (spread_y / term_height as f32).ceil().max(1.0);
+
+        let mut reduced = vec![vec![0usize; term_width]; term_height];
+
+        // Populate reduced grid
+        for (coord, _) in grid.iter() {
+            let original_x = coord.x() as f32 - main_min_x as f32;
+            let original_y = coord.y() as f32 - main_min_y as f32;
+
+            let rx = (original_x / scale_x) as usize;
+            let ry = (original_y / scale_y) as usize;
+
+            if rx < term_width && ry < term_height {
+                reduced[ry][rx] += 1;
+            }
+        }
+
+        reduced
+    }
+
+    pub fn display(&self, grid: &mut HashGrid<i32, (usize, usize)>) {
+        if std::env::var("AOC_ANIMATE").is_err() {
+            return;
+        }
+        let (term_width, term_height) = if let Some((Width(w), Height(h))) = terminal_size() {
+            (w as usize, h as usize)
+        } else {
+            (80, 24)
+        };
+        let grid = Self::reduce_grid_to_term(grid, term_width - 1, term_height - 5);
+
+        let max_value = grid
+            .iter()
+            .flat_map(|row| row.iter())
+            .copied()
+            .max()
+            .unwrap_or(1);
+        let modifier = max_value / 10 + 1;
+
+        print!("{}[2J", 27 as char);
+        for y in grid.iter() {
+            let mut buffer = String::new();
+
+            for x in y.iter() {
+                let display_char = char::from_digit(
+                    ((*x as f32 / modifier as f32).ceil() as u32).clamp(0, 10),
+                    10,
+                );
+                match display_char {
+                    Some('0') => {
+                        buffer.push(' ');
+                    }
+                    Some('1'..='9') => {
+                        buffer.push(display_char.unwrap());
+                    }
+                    _ => {
+                        buffer.push('+');
+                    }
+                }
+            }
+            println!("{buffer}");
+        }
+    }
 }
 
 fn parse_wires(input: &str) -> (Vec<Instruction>, Vec<Instruction>) {
@@ -122,6 +208,7 @@ pub fn part_one(input: &str) -> Option<u64> {
 
     first.trace(&mut grid, true);
     second.trace(&mut grid, false);
+    second.display(&mut grid);
 
     grid.iter()
         .filter_map(|(coord, (a, b))| {
